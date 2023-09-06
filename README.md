@@ -17,7 +17,7 @@ TO DO: Por definir
 
 ## Instalación
 
-Para poder correr el proyecto es necesario tener instalado Python 3 superior. Se recomienda usar un entorno virtual para instalar las dependencias del proyecto. Para esto, se puede usar `virtualenv` o `conda`. Para instalar las dependencias, ejecutar:
+Para poder correr el proyecto es necesario tener instalado Python 3 superior. Se recomienda usar un entorno virtual para instalar las dependencias del proyecto. Para esto, se puede usar `virtualenv` o `conda`. Para instalar las dependencias, por ejemplo se puede hacer lo siguiente:
 
 ```bash
 python3 -m venv venv
