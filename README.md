@@ -25,3 +25,5 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Ejecución
+Una vez hecho la instalación de librerias se recomienda usar el editor de código Visual Studio junto con la extension de Microsoft "Jupyter". Al ejecutar el primer bloque de código se deberá seleccionar el entorno virtual creado.
