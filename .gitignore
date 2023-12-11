@@ -1,6 +1,5 @@
 # data
-data/*.json
-data/*xlsx
+data/*
 hito2/EDA_*
 
 # venv
