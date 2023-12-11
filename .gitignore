@@ -1,4 +1,8 @@
+# data
 data/*.json
-# data/*xlsx
+data/*xlsx
+hito2/EDA_*
+
+# venv
 .venv
 venv
