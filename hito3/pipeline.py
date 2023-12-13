@@ -244,3 +244,10 @@ class DataframeOneHotEncoder(BaseEstimator, TransformerMixin):
         X = X.drop(columns=self.columns)
         X = pd.concat([X, onehot_df], axis=1)
         return X
+
+
+class NanInputer(BaseEstimator, TransformerMixin):
+    """Inpute NA values."""
+
+    def __init__(self, columns: List[str] | str = "auto"):
+        self.columns = columns
