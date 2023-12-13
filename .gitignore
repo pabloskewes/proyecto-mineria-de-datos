@@ -5,3 +5,6 @@ hito2/EDA_*
 # venv
 .venv
 venv
+
+# cache
+*__pycache__*
