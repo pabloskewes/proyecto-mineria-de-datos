@@ -114,13 +114,6 @@ def map_column_to_ordinal(
     return df
 
 
-m_inst = {
-    "Univ.": 0,
-    "I.P.": 1,
-    "C.F.T.": 2,
-    "F.F.A.A.": 3,
-}
-
 m_class1 = {
     "(a) Universidades CRUCH": 0,
     "(b) Universidades Privadas": 1,
@@ -137,7 +130,7 @@ m_class2 = {
     "(d) Universidades Privadas": 3,
     "(e) Institutos Profesionales": 4,
     "(f) Centros de Formación Técnica": 5,
-    "(g) Centros de Formación Técnica Estatales": 5,
+    "(g) Centros de Formación Técnica statales": 5,
     "(h) F.F.A.A.": 6,
 }
 
@@ -161,12 +154,40 @@ m_class6 = {
     "(d) F.F.A.A.": 3,
 }
 
+m_inst = {
+    "Univ.": 0,
+    "I.P.": 1,
+    "C.F.T.": 2,
+    "F.F.A.A.": 3,
+}
+
+m_grado = {
+    "Ingeniero": 0,
+    "Licencia": 1,
+    "Bachiller": 2,
+    "Preparador": 3,
+    "No aplica": 4,
+    "Desconocido": 5,
+}
+
+
 COLUMNS_TO_MAP = [f"Clasificación{i}" for i in range(1, 7)]
 COLUMNS_TO_MAP.extend(
     [
         "Tipo Institución",
+        "Grado Académico",
     ]
 )
+MAPPINGS = [
+    m_class1,
+    m_class2,
+    m_class3,
+    m_class4,
+    m_class5,
+    m_class6,
+    m_inst,
+    m_grado,
+]
 
 
 class OrdinalColumnMapper(BaseEstimator, TransformerMixin):
@@ -175,15 +196,7 @@ class OrdinalColumnMapper(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         columns: List[str] = COLUMNS_TO_MAP,
-        mappings: List[Dict[str, int]] = [
-            m_class1,
-            m_class2,
-            m_class3,
-            m_class4,
-            m_class5,
-            m_class6,
-            m_inst,
-        ],
+        mappings: List[Dict[str, int]] = MAPPINGS,
     ):
         self.columns = columns
         self.mappings = mappings
