@@ -3,17 +3,22 @@ Proyecto para el curso Minería de Datos (CC5205) de la FCFM de la Universidad d
 
 ## Integrantes
 
-TO DO: Pongan sus nombres con links a sus githubs así los pueden encontrar más fácil :)
+* [Carla Guzman](https://github.com/CarlaGuzmanR)
+* [Paola Silva](https://github.com/Paito249)
 * [Pablo Skewes](https://github.com/pabloskewes/)
+* [Isaias Venegas](https://github.com/IsaiasVenegas)
+* [Cynthia Vega](https://github.com/Cynthia-Vega)
 
 
 ## Descripción del proyecto
 
-TO DO: Describir brevemente el proyecto que vamos a hacer cuando esté más definido.
+El proyecto se enmarca en el curso Minería de Datos de la FCFM de la Universidad de Chile. El objetivo por un lado es predecir un posible incremento en la inscripción de mujeres en el área STEM y por el otro agrupar a las instituciones de educación superior según relaciones no triviales entre sus características (puntajes de corte, infraestructura, cantidad de docentes, etc.), todo a partir de los Índices Educación Superior (IES) del Ministerio de Educación de Chile. Para esto, se utilizarán técnicas de aprendizaje supervisado (regresión lineal) y no supervisado (k-means), además de técnicas de visualización de datos.
 
 ## Dataset
 
-TO DO: Por definir
+Para el desarrollo del proyecto se utilizará el dataset de los Índices Educación Superior (IES) del Ministerio de Educación de Chile. Este dataset contiene información de las instituciones de educación superior del país, como si se encuentran acreditadas, tipo de admisión, sedes, entre otros. El dataset se puede encontrar en el siguiente [link](https://cned.cl/institucional/bases-de-datos/) bajo el nombre de "Base INDICES Matrícula 2005-2023".
+
+Durante el desarrollo del proyecto se vió la necesidad de agregar información por institución. El dataset adicional se puede encontrar en el mismo sitio bajo el nombre de "INDICES Institucional 2005-2022".
 
 ## Instalación
 
