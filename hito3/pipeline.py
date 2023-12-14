@@ -1,12 +1,32 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from pprint import pformat
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import requests
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.impute import KNNImputer
+from sklearn.impute import KNNImputer, SimpleImputer
+
+
+class InfoDisplayer(BaseEstimator, TransformerMixin):
+    """Display info about a DataFrame."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def fit(self, X: pd.DataFrame, y=None):
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        if isinstance(X, list):
+            message = f"[{self.name}]"
+            for df in X:
+                " | ".join([message, f"shape: {df.shape}"])
+            print(message)
+        else:
+            print(f"[{self.name}] shape: {X.shape}")
+        return X
 
 
 class DropColumns(BaseEstimator, TransformerMixin):
@@ -23,7 +43,7 @@ class DropColumns(BaseEstimator, TransformerMixin):
         return X.drop(columns=self.columns, errors=self.errors)
 
     def __repr__(self):
-        return f"DropColumns(columns_to_drop={pformat(self.columns)})"
+        return f"DropColumns(columns={pformat(self.columns)})"
 
 
 class DropHighNAPercentage(BaseEstimator, TransformerMixin):
@@ -118,18 +138,19 @@ class OrdinalColumnMapper(BaseEstimator, TransformerMixin):
             self.inverse_mappings[column] = dict(mapping)
 
     def fit(self, X: pd.DataFrame, y=None):
-        for column in self.columns:
-            X[column] = X[column].astype("category")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        for column in self.columns:
+            X[column] = X[column].astype("category")
+
         for column, mapping in zip(self.columns, self.mappings):
             X = map_column_to_ordinal(X, column, mapping)
         return X
 
     def __repr__(self):
         return (
-            f"ColumnMapper(columns={pformat(self.columns)},"
+            f"OrdinalColumnMapper(columns={pformat(self.columns)},"
             f"mappings={pformat(self.mappings)})"
         )
 
@@ -176,7 +197,10 @@ class NanInputer(BaseEstimator, TransformerMixin):
         n_neighbors: int = 5,
     ):
         self.columns = columns
-        self.inputer = KNNImputer(n_neighbors=n_neighbors).set_output(
+        # self.inputer = KNNImputer(n_neighbors=n_neighbors).set_output(
+        #     transform="pandas"
+        # )
+        self.inputer = SimpleImputer(strategy="most_frequent").set_output(
             transform="pandas"
         )
         self.n_neighbors = n_neighbors
@@ -184,29 +208,111 @@ class NanInputer(BaseEstimator, TransformerMixin):
     def fit(self, X: pd.DataFrame, y=None):
         if self.columns == "auto":
             self.columns = X.isnull().any().index
+        self.inputer.fit(X[self.columns])
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        X[self.columns] = self.inputer.fit_transform(X[self.columns])
+        X[self.columns] = self.inputer.transform(X[self.columns])
         return X
 
 
-class MultiDataFramePipeline:
+class MultiDataFramePipeline(BaseEstimator, TransformerMixin):
     """Apply a list of transformers to a list of DataFrames. Each transformer
     is applied to a single DataFrame. The outputs are returned in a list."""
 
-    def __init__(self, transformers: List[TransformerMixin]):
-        self.transformers = transformers
+    def __init__(self, transformers: List[Tuple[str, TransformerMixin]]):
+        self.transformers = OrderedDict(transformers)
 
     def fit(self, X: List[pd.DataFrame], y=None):
-        for transformer in self.transformers:
-            transformer.fit(X)
+        if len(X) != len(self.transformers):
+            raise ValueError(
+                f"Expected {len(self.transformers)} DataFrames, got {len(X)}"
+            )
+
+        for df, transformer in zip(X, self.transformers.values()):
+            print(f"Fitting {transformer.__class__.__name__}...")
+            transformer.fit(df)
         return self
 
     def transform(self, X: List[pd.DataFrame]) -> List[pd.DataFrame]:
-        return [
-            transformer.transform(x) for transformer, x in zip(X, self.transformers)
-        ]
+        if len(X) != len(self.transformers):
+            raise ValueError(
+                f"Expected {len(self.transformers)} DataFrames, got {len(X)}"
+            )
 
-    def __repr__(self):
-        return f"MultiDataFramePipeline(transformers={pformat(self.transformers)})"
+        results = []
+        for df, transformer in zip(X, self.transformers.values()):
+            results.append(transformer.transform(df))
+
+        print(f"Returning {len(results)} DataFrames.")
+        return results
+
+    def _repr_html_(self):
+        reprs = [
+            f"<li>{transformer.__class__.__name__}(parameters={transformer.get_params()})</li>"
+            for transformer in self.transformers.values()
+        ]
+        return f"<ul>{''.join(reprs)}</ul>"
+
+
+def merge_dataframes(
+    target_df: pd.DataFrame,
+    df_to_merge: pd.DataFrame,
+    merge_cols: List[str],
+) -> pd.DataFrame:
+    """
+    Merge two dataframes on the specified columns,
+    conserving the index of the target dataframe
+    Args:
+        target_df (pd.DataFrame): dataframe to merge with
+        df_to_merge (pd.DataFrame): dataframe to merge
+        merge_cols (List[str]): columns to merge on
+    Returns:
+        pd.DataFrame: merged dataframe
+    """
+    target_df = target_df.copy()
+
+    target_df["index"] = target_df.index
+    df_merged = target_df.merge(df_to_merge, on=merge_cols, how="inner")
+    df_merged = df_merged.set_index("index")
+    df_merged.index.name = None
+    return df_merged
+
+
+class MultiDataFrameMerger(BaseEstimator, TransformerMixin):
+    """Merge a list of DataFrames."""
+
+    def __init__(self, columns: List[List[str]] | List[str]):
+        """Initialize the MultiDataFrameMerger.
+
+        Parameters:
+        columns (List[List[str]] | List[str]): A list of lists of columns to
+        merge. Each list is used to merge a pair of DataFrames consecutively.
+        If the list has only one element, it's used on every step.
+        """
+
+        self.columns = columns
+
+    def fit(self, X: List[pd.DataFrame], y=None):
+        print(f"Merging {len(X)} DataFrames into one...")
+
+        if isinstance(self.columns[0], str):
+            self.columns = [self.columns] * (len(X) - 1)
+
+        if len(X) != len(self.columns) + 1:
+            raise ValueError(
+                f"Expected {len(self.columns) + 1} DataFrames, got {len(X)}"
+            )
+
+        return self
+
+    def transform(self, X: List[pd.DataFrame]) -> pd.DataFrame:
+        if len(X) != len(self.columns) + 1:
+            raise ValueError(
+                f"Expected {len(self.columns) + 1} DataFrames, got {len(X)}"
+            )
+
+        df_merged = X[0]
+        for df, columns in zip(X[1:], self.columns):
+            df_merged = merge_dataframes(df_merged, df, columns)
+        return df_merged
