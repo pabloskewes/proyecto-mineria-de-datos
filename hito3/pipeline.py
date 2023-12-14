@@ -4,9 +4,12 @@ from collections import defaultdict, OrderedDict
 import requests
 
 import pandas as pd
+from tqdm import tqdm
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
 
 class InfoDisplayer(BaseEstimator, TransformerMixin):
@@ -316,3 +319,78 @@ class MultiDataFrameMerger(BaseEstimator, TransformerMixin):
         for df, columns in zip(X[1:], self.columns):
             df_merged = merge_dataframes(df_merged, df, columns)
         return df_merged
+
+
+class KMeansClusterer(BaseEstimator, TransformerMixin):
+    """Perform KMeans clustering with multiple values and store scores."""
+
+    def __init__(
+        self,
+        n_clusters: List[int],
+        columns: List[str] | None = None,
+        random_state: int = 42,
+        progress_bar: bool = False,
+    ):
+        self.columns = columns
+        self.n_clusters = n_clusters
+        self.random_state = random_state
+        self.progress_bar = progress_bar
+
+        self.clusters_data = {}
+        self.results_df = None
+
+    def fit(self, X: pd.DataFrame, y=None):
+        self.columns = self.columns or X.columns
+
+        iterator = self.n_clusters
+        if self.progress_bar:
+            iterator = tqdm(self.n_clusters, desc="KMeans")
+
+        for n_clusters in iterator:
+            kmeans = KMeans(
+                n_clusters=n_clusters,
+                random_state=self.random_state,
+                n_init="auto",
+            )
+            kmeans.fit(X[self.columns])
+
+            self.clusters_data[n_clusters] = {
+                "model": kmeans,
+                "silhouette_score": silhouette_score(
+                    X[self.columns],
+                    kmeans.labels_,
+                ),
+            }
+
+            self.results_df = pd.DataFrame.from_dict(
+                self.clusters_data,
+                orient="index",
+            ).sort_index()
+            self.results_df.index.name = "n_clusters"
+            self.results_df["inertia"] = self.results_df["model"].apply(
+                lambda x: x.inertia_
+            )
+
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        best_n_clusters = max(
+            self.clusters_data,
+            key=lambda n_clusters: self.clusters_data[n_clusters]["silhouette_score"],
+        )
+        kmeans = self.clusters_data[best_n_clusters]["model"]
+        X["cluster"] = kmeans.labels_
+        return X
+
+    def get_labels(self, n_clusters: int) -> pd.Series:
+        if n_clusters not in self.clusters_data:
+            raise ValueError(f"n_clusters={n_clusters} not found")
+
+        kmeans = self.clusters_data[n_clusters]["model"]
+        return kmeans.labels_
+
+    def plot_elbow(self):
+        self.results_df.plot(x="n_clusters", y="inertia", kind="line")
+
+    def __repr__(self):
+        return f"KMeansClusterer(n_clusters={pformat(self.n_clusters)})"
