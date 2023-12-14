@@ -3,45 +3,27 @@ from pprint import pformat
 from collections import defaultdict
 import requests
 
-
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OneHotEncoder
-
-COLUMNS_TO_DROP = [
-    "Nombre de la Sede",
-    "Orden Geográfico de la Región (Norte aSur)",
-    "Mención o Especialidad",
-    "idgenerocarrera",
-    # "Cód. Campus",
-    # "Cód. Sede",
-    "Códgo SIES",
-    "Máximo Puntaje (promedio matemáticas y lenguaje)",
-    "Máximo Puntaje NEM",
-    "Máximo Puntaje Ranking",
-    "Mínimo Puntaje (promedio matemáticas y lenguaje)",
-    "Mínimo Puntaje NEM",
-    "Mínimo Puntaje Ranking",
-]
+from sklearn.impute import KNNImputer
 
 
 class DropColumns(BaseEstimator, TransformerMixin):
     """Drop columns from a DataFrame."""
 
-    def __init__(self, columns_to_drop: List[str] = COLUMNS_TO_DROP):
-        self.columns_to_drop = columns_to_drop
+    def __init__(self, columns: List[str], errors: str = "raise"):
+        self.columns = columns
+        self.errors = errors
 
     def fit(self, X: pd.DataFrame, y=None):
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        return X.drop(columns=self.columns_to_drop)
+        return X.drop(columns=self.columns, errors=self.errors)
 
     def __repr__(self):
-        return f"DropColumns(columns_to_drop={pformat(self.columns_to_drop)})"
-
-
-EXCLUDE_COLUMNS_OF_DROPHIGHNA = ["Nombre del Campus"]
+        return f"DropColumns(columns_to_drop={pformat(self.columns)})"
 
 
 class DropHighNAPercentage(BaseEstimator, TransformerMixin):
@@ -49,8 +31,8 @@ class DropHighNAPercentage(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
+        exclude: List[str],
         na_threshold: float = 0.26,
-        exclude: List[str] = EXCLUDE_COLUMNS_OF_DROPHIGHNA,
     ):
         if na_threshold < 0 or na_threshold > 1:
             raise ValueError("na_threshold must be between 0 and 1")
@@ -78,15 +60,11 @@ def get_uf_value():
     return response.json()["uf"]["valor"]
 
 
-CURRENCY_COLUMNS = [
-    "Valor de matrícula",
-    "Valor de arancel",
-    "Valor del Título",
-]
-
-
 class NormalizeCurrency(BaseEstimator, TransformerMixin):
     """Preprocess Tipo Moneda column."""
+
+    def __init__(self, columns: List[str]):
+        self.columns = columns
 
     def fit(self, X: pd.DataFrame, y=None):
         return self
@@ -96,8 +74,8 @@ class NormalizeCurrency(BaseEstimator, TransformerMixin):
 
         uf_value = get_uf_value()
         uf_index_mask = X["Tipo Moneda"] == "Uf"
-        X.loc[uf_index_mask, CURRENCY_COLUMNS] = (
-            X.loc[uf_index_mask, CURRENCY_COLUMNS] * uf_value
+        X.loc[uf_index_mask, self.columns] = (
+            X.loc[uf_index_mask, self.columns] * uf_value
         )
         X = X.drop(columns=["Tipo Moneda"])
 
@@ -114,89 +92,13 @@ def map_column_to_ordinal(
     return df
 
 
-m_class1 = {
-    "(a) Universidades CRUCH": 0,
-    "(b) Universidades Privadas": 1,
-    "(c) Institutos Profesionales": 2,
-    "(d) Centros de Formación Técnica": 3,
-    "(e) Centros de Formación Técnica Estatales": 3,
-    "(f) F.F.A.A.": 4,
-}
-
-m_class2 = {
-    "(a) Universidades Estatales CRUCH": 0,
-    "(b) Universidades Privadas CRUCH": 1,
-    "(c) Univ. Privadas Adscritas SUA": 2,
-    "(d) Universidades Privadas": 3,
-    "(e) Institutos Profesionales": 4,
-    "(f) Centros de Formación Técnica": 5,
-    "(g) Centros de Formación Técnica statales": 5,
-    "(h) F.F.A.A.": 6,
-}
-
-m_class3 = {"(a) Acreditada": 0, "(b) No Acreditada": 1}
-
-m_class4 = {
-    "(a) Autónoma": 0,
-    "(b) Licenciamiento": 1,
-    "(c) Examinación": 2,
-    "(d) Supervisión": 3,
-    "(e) F.F.A.A.": 4,
-    "(e) Cerrada": 5,
-}
-
-m_class5 = {"(a) Adscritas a Gratuidad": 0, "(b) No Adscritas/No Aplica": 1}
-
-m_class6 = {
-    "(a) Subsistema Universitario": 0,
-    "(b) Subsistema Técnico Profesional": 1,
-    "(c) No adscrito": 2,
-    "(d) F.F.A.A.": 3,
-}
-
-m_inst = {
-    "Univ.": 0,
-    "I.P.": 1,
-    "C.F.T.": 2,
-    "F.F.A.A.": 3,
-}
-
-m_grado = {
-    "Ingeniero": 0,
-    "Licencia": 1,
-    "Bachiller": 2,
-    "Preparador": 3,
-    "No aplica": 4,
-    "Desconocido": 5,
-}
-
-
-COLUMNS_TO_MAP = [f"Clasificación{i}" for i in range(1, 7)]
-COLUMNS_TO_MAP.extend(
-    [
-        "Tipo Institución",
-        "Grado Académico",
-    ]
-)
-MAPPINGS = [
-    m_class1,
-    m_class2,
-    m_class3,
-    m_class4,
-    m_class5,
-    m_class6,
-    m_inst,
-    m_grado,
-]
-
-
 class OrdinalColumnMapper(BaseEstimator, TransformerMixin):
     """Map column values to new values."""
 
     def __init__(
         self,
-        columns: List[str] = COLUMNS_TO_MAP,
-        mappings: List[Dict[str, int]] = MAPPINGS,
+        columns: List[str],
+        mappings: List[Dict[str, int]],
     ):
         self.columns = columns
         self.mappings = mappings
@@ -216,6 +118,8 @@ class OrdinalColumnMapper(BaseEstimator, TransformerMixin):
             self.inverse_mappings[column] = dict(mapping)
 
     def fit(self, X: pd.DataFrame, y=None):
+        for column in self.columns:
+            X[column] = X[column].astype("category")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -236,13 +140,17 @@ class DataframeOneHotEncoder(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         columns: List[str],
-        *args,
-        **kwargs,
+        min_frequency: int | None = None,
+        max_categories: int | None = None,
     ):
         self.columns = columns
-        self.args = args
-        self.kwargs = kwargs
-        self.encoder = OneHotEncoder(sparse_output=False, *args, **kwargs)
+        self.encoder = OneHotEncoder(
+            sparse_output=False,
+            min_frequency=min_frequency,
+            max_categories=max_categories,
+        )
+        self.min_frequency = min_frequency
+        self.max_categories = max_categories
 
     def fit(self, X: pd.DataFrame, y=None):
         self.encoder.fit(X[self.columns])
@@ -253,7 +161,7 @@ class DataframeOneHotEncoder(BaseEstimator, TransformerMixin):
         onehot_df = pd.DataFrame(
             data=data,
             columns=self.encoder.get_feature_names_out(),
-        )
+        ).astype("category")
         X = X.drop(columns=self.columns)
         X = pd.concat([X, onehot_df], axis=1)
         return X
@@ -262,5 +170,43 @@ class DataframeOneHotEncoder(BaseEstimator, TransformerMixin):
 class NanInputer(BaseEstimator, TransformerMixin):
     """Inpute NA values."""
 
-    def __init__(self, columns: List[str] | str = "auto"):
+    def __init__(
+        self,
+        columns: List[str] | str = "auto",
+        n_neighbors: int = 5,
+    ):
         self.columns = columns
+        self.inputer = KNNImputer(n_neighbors=n_neighbors).set_output(
+            transform="pandas"
+        )
+        self.n_neighbors = n_neighbors
+
+    def fit(self, X: pd.DataFrame, y=None):
+        if self.columns == "auto":
+            self.columns = X.isnull().any().index
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        X[self.columns] = self.inputer.fit_transform(X[self.columns])
+        return X
+
+
+class MultiDataFramePipeline:
+    """Apply a list of transformers to a list of DataFrames. Each transformer
+    is applied to a single DataFrame. The outputs are returned in a list."""
+
+    def __init__(self, transformers: List[TransformerMixin]):
+        self.transformers = transformers
+
+    def fit(self, X: List[pd.DataFrame], y=None):
+        for transformer in self.transformers:
+            transformer.fit(X)
+        return self
+
+    def transform(self, X: List[pd.DataFrame]) -> List[pd.DataFrame]:
+        return [
+            transformer.transform(x) for transformer, x in zip(X, self.transformers)
+        ]
+
+    def __repr__(self):
+        return f"MultiDataFramePipeline(transformers={pformat(self.transformers)})"
