@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional, Tuple, Union
 from pprint import pformat
 from collections import defaultdict, OrderedDict
 import requests
@@ -164,8 +164,8 @@ class DataframeOneHotEncoder(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         columns: List[str],
-        min_frequency: int | None = None,
-        max_categories: int | None = None,
+        min_frequency: Optional[int] = None,
+        max_categories: Optional[int] = None,
     ):
         self.columns = columns
         self.encoder = OneHotEncoder(
@@ -196,7 +196,7 @@ class NanInputer(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        columns: List[str] | str = "auto",
+        columns: Union[List[str], str] = "auto",
         n_neighbors: int = 5,
     ):
         self.columns = columns
@@ -285,11 +285,11 @@ def merge_dataframes(
 class MultiDataFrameMerger(BaseEstimator, TransformerMixin):
     """Merge a list of DataFrames."""
 
-    def __init__(self, columns: List[List[str]] | List[str]):
+    def __init__(self, columns: Union[List[List[str]], List[str]]):
         """Initialize the MultiDataFrameMerger.
 
         Parameters:
-        columns (List[List[str]] | List[str]): A list of lists of columns to
+        columns (Union[List[List[str]], List[str]]): A list of lists of columns to
         merge. Each list is used to merge a pair of DataFrames consecutively.
         If the list has only one element, it's used on every step.
         """
@@ -327,7 +327,7 @@ class KMeansClusterer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         n_clusters: List[int],
-        columns: List[str] | None = None,
+        columns: Optional[List[str]] = None,
         random_state: int = 42,
         progress_bar: bool = False,
     ):
